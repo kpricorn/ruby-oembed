@@ -27,9 +27,8 @@ module OEmbed
     def discover_provider(url, options = {})
       uri = URI.parse(url)
 
-      res = Net::HTTP.start(uri.host, uri.port) do |http|
-        http.get(uri.request_uri)
-      end
+      http = Net::HTTP.new(uri.host, uri.port)
+      res = http.get(uri.request_uri)
 
       case res
       when Net::HTTPNotFound
