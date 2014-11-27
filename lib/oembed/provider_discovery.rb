@@ -1,3 +1,5 @@
+require 'open-uri'
+
 module OEmbed
   # Uses {oEmbed Discover}[http://oembed.com/#section4] to generate a new Provider
   # instance about a URL for which a Provider didn't previously exist.
@@ -25,27 +27,20 @@ module OEmbed
     # The options Hash recognizes the following keys:
     # :format:: If given only discover endpoints for the given format. If not format is given, use the first available format found.
     def discover_provider(url, options = {})
-      uri = URI.parse(url)
-
-      http = Net::HTTP.new(uri.host, uri.port)
-      res = http.get(uri.request_uri)
-
-      case res
-      when Net::HTTPNotFound
-        raise OEmbed::NotFound, url
-      when Net::HTTPSuccess
+      open(url) do |res|
+        body = res.read
         format = options[:format]
 
         if format.nil? || format == :json
-          provider_endpoint ||= /<link.*href=['"]*([^\s'"]+)['"]*.*application\/json\+oembed.*>/.match(res.body)[1] rescue nil
-          provider_endpoint ||= /<link.*application\/json\+oembed.*href=['"]*([^\s'"]+)['"]*.*>/.match(res.body)[1] rescue nil
+          provider_endpoint ||= /<link.*href=['"]*([^\s'"]+)['"]*.*application\/json\+oembed.*>/.match(body)[1] rescue nil
+          provider_endpoint ||= /<link.*application\/json\+oembed.*href=['"]*([^\s'"]+)['"]*.*>/.match(body)[1] rescue nil
           format ||= :json if provider_endpoint
         end
         if format.nil? || format == :xml
           # {The specification}[http://oembed.com/#section4] says XML discovery should have
           # type="text/xml+oembed" but some providers use type="application/xml+oembed"
-          provider_endpoint ||= /<link.*href=['"]*([^\s'"]+)['"]*.*(application|text)\/xml\+oembed.*>/.match(res.body)[1] rescue nil
-          provider_endpoint ||= /<link.*(application|text)\/xml\+oembed.*href=['"]*([^\s'"]+)['"]*.*>/.match(res.body)[2] rescue nil
+          provider_endpoint ||= /<link.*href=['"]*([^\s'"]+)['"]*.*(application|text)\/xml\+oembed.*>/.match(body)[1] rescue nil
+          provider_endpoint ||= /<link.*(application|text)\/xml\+oembed.*href=['"]*([^\s'"]+)['"]*.*>/.match(body)[2] rescue nil
           format ||= :xml if provider_endpoint
         end
 
@@ -58,9 +53,11 @@ module OEmbed
         end
 
         Provider.new(provider_endpoint, format || OEmbed::Formatter.default)
-      else
-        raise OEmbed::UnknownResponse, res.code
       end
+    rescue OpenURI::HTTPError => ex
+      raise OEmbed::UnknownResponse, ex.messages
+    rescue => ex
+      raise OEmbed::UnknownResponse, ex.message
     end
 
     end
