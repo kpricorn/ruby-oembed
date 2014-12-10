@@ -55,7 +55,7 @@ module OEmbed
         Provider.new(provider_endpoint, format || OEmbed::Formatter.default)
       end
     rescue OpenURI::HTTPError => ex
-      raise OEmbed::UnknownResponse, ex.messages
+      raise OEmbed::UnknownResponse, ex.message
     rescue => ex
       raise OEmbed::UnknownResponse, ex.message
     end
